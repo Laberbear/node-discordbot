@@ -43,7 +43,7 @@ function getPlaylist(spotify, callback){
 }
 
 
-function startPlaylist(callback){
+function startPlaylist(e, callback){
   async.waterfall(
     [
       getSpotify,
@@ -51,6 +51,12 @@ function startPlaylist(callback){
     ],
   function(err, results){
     console.log(results)
+    for(var i = 0; i<results.length;i++){
+      var tempUri = results[i]
+      results[i] = {}
+      results[i].songUri = tempUri
+      results[i].discordEvent = e
+    }
     async.mapSeries(results, playUri, function(err, results){
       console.log("Async Complete")
       callback(err)
@@ -67,6 +73,7 @@ client.connect({ email: discordEmail, password: discordPassword });
 
 client.Dispatcher.on(Events.GATEWAY_READY, e => {
   console.log("Connected as: " + client.User.username);
+
 });
 
 client.Dispatcher.on(Events.MESSAGE_CREATE, e => {
@@ -94,15 +101,21 @@ client.Dispatcher.on(Events.MESSAGE_CREATE, e => {
       if(requestedUri.indexOf("playlist") != -1){
         console.log("Trying to playlist " + requestedUri)
         playlistUri = requestedUri
-        startPlaylist(donePlaying);
+        startPlaylist(e, donePlaying);
       } else if (requestedUri.indexOf("track") != -1){
         console.log("Trying to play song" + requestedUri)
         var songUri = requestedUri
-        playUri(songUri, donePlaying)
+        var tempJSON = {}
+        tempJSON.songUri = songUri
+        tempJSON.discordEvent = e
+        playUri(tempJSON, donePlaying)
       } else {
         console.log("Trying to play example song " + requestedUri)
         var songUri = "spotify:track:1OsCKwNZxph96EkNusILRy"
-        playUri(songUri, donePlaying)
+        var tempJSON = {}
+        tempJSON.songUri = songUri
+        tempJSON.discordEvent = e
+        playUri(tempJSON, donePlaying)
       }
   }
   if(e.message.content.indexOf("stop") == 0) {
@@ -126,7 +139,11 @@ console.log("test1")
 var stopPlaying = false;
 var nextPlaying = false;
 //function play(voiceConnectionInfo, songuri) {
-function playUri(songuri, callback) {
+
+function playUri(uriAndEvent, callback) {
+
+  var songuri = uriAndEvent.songUri
+  var discordEvent = uriAndEvent.discordEvent
 	nextPlaying = false;
 
 	var mp3decoder = new lame.Decoder();
@@ -145,13 +162,18 @@ function playUri(songuri, callback) {
       console.log('Playing: %s - %s', track.artist[0].name, track.name);
       // play() returns a readable stream of MP3 audio data
       console.log(track)
-      track.play()
-        .pipe(mp3decoder)
-        .on('finish', function () {
-          spotify.disconnect();
-          callback()
-        });
-
+      if(!spotify.isTrackAvailable(track,"DE")){
+        discordEvent.message.reply("This song is not available in Germany, sorry!")
+        nextPlaying =  true
+        callback(null)
+        return
+      }
+        track.play()
+          .pipe(mp3decoder)
+          .on('finish', function () {
+            spotify.disconnect();
+            callback()
+          });
     });
   });
 	function decode(pcmfmt) {
@@ -192,12 +214,16 @@ function playUri(songuri, callback) {
         //console.log("Need a new Chunk after" + ((new Date()) - oldNeedTime))
         //oldNeedTime = new Date()
         v.setVolume(globalVolume)
-				if (stopPlaying || nextPlaying){
+				if (stopPlaying){
           console.log("stopped playing")
+          callback("Stop play")
+          return;
+        }
+        if (nextPlaying){
+          console.log("playing next track")
           callback(null)
           return;
         }
-
 				// delay the packet if no data buffered
 				if (!lastChunk) {
           console.log("No packet to send!")
