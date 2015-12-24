@@ -10,7 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "async": "^1.5.0",
-    "discordie": "0.0.8",
+    "discordie": ">=0.0.8",
     "lame": "^1.2.3",
     "pcm-volume": "^1.0.0",
     "spotify-web": "git+https://github.com/CoDEmanX/node-spotify-web.git#patch-1"

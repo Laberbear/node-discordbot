@@ -28,3 +28,6 @@ node_modules
 
 # Config Files
 .config
+
+#atom-ternjs config file
+.tern-project
