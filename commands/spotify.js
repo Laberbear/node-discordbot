@@ -1,245 +1,188 @@
 /*
   Spotify Playback Plugin
+
+  Requires the playlist and vjoin commands to get the full functionality
 */
+
 
 var exports = module.exports = {};
 
-var stopPlaying = false;
-var nextPlaying = false;
-
-var playlistUri = ""
-
-var globalVolume = 1
-
-var volume = require("pcm-volume");
+//Dependencies
 var lame = require('lame');
 var Spotify = require('spotify-web');
 var async = require('async')
 
-// Spotify credentials...
+
+
+//Consts
+
+//Spotify Auth and Data
 var spotifyUsername = process.argv[2];
 var spotifyPassword = process.argv[3];
 
+//Global Playback Settings
 
-var playHandler = function(discordClient, discordEvent, message_content){
-  const requestedUri = message_content.replace("play  ", "");
-  stopPlaying = false;
-  nextPlaying = false;
-  if(requestedUri.indexOf("playlist") != -1){
-    console.log("Trying to playlist " + requestedUri)
-    playlistUri = requestedUri
-    startPlaylist(discordClient, discordEvent, donePlaying);
-  } else if (requestedUri.indexOf("track") != -1){
-    console.log("Trying to play song" + requestedUri)
-    var songUri = requestedUri
-    var tempJSON = {}
-    tempJSON.songUri = songUri
-    tempJSON.discordEvent = discordEvent
-    tempJSON.discordClient = discordClient
-    playUri(tempJSON, donePlaying)
+var paused = false;
+var stopped = false
+var playHandler = function(message_content, e, bot, callback){
+  message_content = message_content.replace("play ", "");
+  //First check wether the given uri is for spotify
+  if(message_content.indexOf("spotify:") === 0) {
+    async.waterfall([
+      function(callback2){
+        if(!bot.discordClient.VoiceConnections.length){
+          bot.callBotCommand("vjoin", e, callback2);
+          return;
+        } else {
+          console.log("callback2 is being called");
+          callback2();
+          return;
+        }
+      },
+      getSpotify,
+      function (spotify, callback3){
+          console.log("callback 3 is being called");
+          callback3(null, spotify, message_content, e, bot);
+          return;
+      },
+      checkSpotifyUri,
+      createPlaylistOrPlay
+    ], function(err){
+      console.log("Spotify Play Command Callback was called (the last one)");
+      console.log(err);
+      callback();
+    });
   } else {
-    console.log("Trying to play example song " + requestedUri)
-    var songUri = "spotify:track:1OsCKwNZxph96EkNusILRy"
-    var tempJSON = {}
-    tempJSON.songUri = songUri
-    tempJSON.discordEvent = discordEvent
-    tempJSON.discordClient = discordClient
-    playUri(tempJSON, donePlaying)
+    e.message.reply("No Spotify URI found!");
   }
 }
 
-var nextHandler = function(discordClient, discordEvent, message_content){
-  nextPlaying = true;
+var pauseHandler = function(){
+  //On pause, kill the voice encoder
+
+  //On unpause restart the voice encoder
 }
-var stopHandler = function(discordClient, discordEvent, message_content){
-  stopPlaying = true;
+
+var stopHandler = function(bot){
+  //Kill Voice encoder
+  //stop spotify stream and disconnect
+  bot.stopVoice();
 }
-var volHandler = function(discordClient, discordEvent, message_content){
-  var requestedVolume = message_content.replace("vol ", "");
-  globalVolume = requestedVolume
-}
+
 
 exports.getCommands = function(){
   var spotifyDescriptionPrefix = "SPOTIFY - "
-  commands = [
+  var commands = [
     {
       'name' : "play",
       'description' : spotifyDescriptionPrefix + "Plays a Spotify URI that is specified after the command",
-      'handler' : playHandler
-    },{
-      'name' : "next",
-      'description' : spotifyDescriptionPrefix + "Plays the next song in the Playlist",
-      'handler' : nextHandler
-    },{
-      'name' : "stop",
-      'description' : spotifyDescriptionPrefix + "Stops the playback",
-      'handler' : stopHandler
-    },{
-      'name' : "vol",
-      'description' : spotifyDescriptionPrefix + "Sets the volume of the bot",
-      'handler' : volHandler
+      'handler' : playHandler,
+      'playlistPause' : pauseHandler,
+      'playlistStop' : stopHandler
     }
   ];
   return commands;
-}
-
-function playUri(uriEventAndClient, callback) {
-  var songuri = uriEventAndClient.songUri
-  var discordEvent = uriEventAndClient.discordEvent
-  var client = uriEventAndClient.discordClient
-	nextPlaying = false;
-
-	var mp3decoder = new lame.Decoder();
-  var v = new volume()
-	mp3decoder.on('format', decode);
-  mp3decoder.pipe(v)
-  //mp3decoder.pipe(v)
-  Spotify.login(spotifyUsername, spotifyPassword, function (err, spotify) {
-    if (err) throw err;
-
-    // first get a "Track" instance from the track URI
-
-    console.log(songuri)
-    spotify.get(songuri, function (err, track) {
-      if (err) throw err;
-      console.log('Playing: %s - %s', track.artist[0].name, track.name);
-      // play() returns a readable stream of MP3 audio data
-      console.log(track)
-      if(!spotify.isTrackAvailable(track,"DE")){
-        try{
-          discordEvent.message.reply("This song is not available in Germany, sorry!")
-        } catch(err) {
-          console.log("Tried to reply to undefined event")
-        }
-        nextPlaying =  true
-        callback(null)
-        return
-      }
-        track.play()
-          .pipe(mp3decoder)
-          .on('finish', function () {
-            spotify.disconnect();
-            stopPlaying = true;
-            callback()
-            return
-          });
-    });
-  });
-	function decode(pcmfmt) {
-		// note: discordie encoder does resampling if rate != 48000
-		var options = {
-			frameDuration: 60,
-			sampleRate: pcmfmt.sampleRate,
-			channels: pcmfmt.channels,
-			float: false,
-
-			multiThreadedVoice: true
-		};
-
-		const frameDuration = 60;
-
-		var readSize =
-			pcmfmt.sampleRate / 1000 *
-			options.frameDuration *
-			pcmfmt.bitDepth / 8 *
-			pcmfmt.channels;
-
-		v.once('readable', function() {
-			if(!client.VoiceConnections.length) {
-				return console.log("Voice not connected");
-			}
-
-			var voiceConnectionInfo = client.VoiceConnections[0];
-
-			var voiceConnection = voiceConnectionInfo.voiceConnection;
-
-			// one encoder per voice connection
-			var encoder = voiceConnection.getEncoder(options);
-
-			const needBuffer = () => encoder.onNeedBuffer();
-      var lastChunk = v.read(readSize)
-			encoder.onNeedBuffer = function() {
-        //console.log(v)
-        //console.log("Need a new Chunk after" + ((new Date()) - oldNeedTime))
-        //oldNeedTime = new Date()
-        v.setVolume(globalVolume)
-				if (stopPlaying){
-          console.log("stopped playing")
-          callback("Stop play")
-          return;
-        }
-        if (nextPlaying){
-          console.log("playing next track")
-          callback(null)
-          return;
-        }
-				// delay the packet if no data buffered
-				if (!lastChunk) {
-          console.log("No packet to send!")
-          lastChunk = v.read(readSize)
-          return setTimeout(needBuffer, options.frameDuration);
-        }
-
-				var sampleCount = readSize / pcmfmt.channels / (pcmfmt.bitDepth / 8);
-				encoder.enqueue(lastChunk, sampleCount);
-        lastChunk = v.read(readSize)
-			};
-
-			needBuffer();
-		});
-
-		v.once('end', () => callback);
-	}
 }
 
 function getSpotify(callback){
     Spotify.login(spotifyUsername, spotifyPassword, callback)
 }
 
-function getPlaylist(spotify, callback){
-  if(playlistUri == ""){
-    callback("Playlist Uri isn't set")
-    return
+function checkSpotifyUri(spotify, uri, e, bot, callback){
+  // If the URI is a playlist
+  if(uri.indexOf(":playlist:") != -1) {
+    spotify.playlist(uri, function (err, playlist) {
+      if (err) throw err;
+
+      var tracks = [];
+      for(var track of playlist.contents.items){
+        tracks.push(track.uri);
+      }
+      console.log(tracks);
+      console.log("callback from spotify uri checker is called");
+      callback(null,spotify, tracks, bot)
+      return;
+    });
+    return;
   }
-  spotify.playlist(playlistUri, function (err, playlist) {
-    if (err) throw err;
 
-    console.log(playlist.contents);
-    var uriArray = [];
-    for(var i = 0;i<playlist.contents.items.length;i++){
-      uriArray.push(playlist.contents.items[i].uri)
-    }
-    spotify.disconnect();
-    callback(err, uriArray)
-    return
+  //If the URI is an album
+  if(uri.indexOf(":album:") != -1) {
+    spotify.get(uri, function (err, album) {
+      if (err) throw er;
+      // first get the Track instances for each disc
+      var tracks = [];
+      console.log(album);
+      album.disc.forEach(function (disc) {
+        if (!Array.isArray(disc.track)) return;
+        tracks.push.apply(tracks, disc.track);
+      });
+      console.log(tracks);
+      callback(null,spotify, tracks, bot)
   });
+  return;
 }
 
+  //If the URI is just a track
+  if(uri.indexOf(":track:") != -1) {
+    var tracks = [];
+    spotify.get(uri, function (err, track) {
+      if (err) throw err;
+      tracks.push(track);
+      console.log(tracks);
+      callback(null,spotify, tracks, bot)
+      return;
+    });
+    return;
+  }
+  callback("Not a valid Spotify URI!");
+  return;
+}
 
-function startPlaylist(discordClient, e, callback){
-  async.waterfall(
-    [
-      getSpotify,
-      getPlaylist
-    ],
-  function(err, results){
-    console.log(results)
-    for(var i = 0; i<results.length;i++){
-      var tempUri = results[i]
-      results[i] = {}
-      results[i].songUri = tempUri
-      results[i].discordClient = discordClient
-      results[i].discordEvent = e
+function createPlaylistOrPlay(spotify, tracks, bot, callback){
+  //When you try to play one song directly then do that,
+  //If there are more, then create a playlist with the tracks
+  if(tracks.length == 1){
+    console.log("trying to pipe track")
+    pipeTrack(spotify, tracks[0], bot, callback)
+  } else {
+    //Create new Playlist and Start playing
+    for(var track of tracks){
+      console.log("add play " + track);
+      bot.callBotCommand("add play " + track, undefined, playlistCallbackHandle);
     }
-    async.mapSeries(results, playUri, function(err, results){
-      console.log("Async Complete")
-      callback(err)
-      return
-    })
-
-});
+    callback();
+    return;
+  }
 }
 
-function donePlaying(err){
-  console.log("Done playing requestedUri")
+function playlistCallbackHandle(err){
+  if(err){
+    console.log(err);
+  }
+}
+
+
+function pipeTrack(spotify, track, bot, callback){
+  console.log(track.externalId)
+  function decode (pcmfmt) {
+    console.log("Start decoding");
+    bot.startVoice(track.name, pcmfmt, callback);
+    mp3decoder.pipe(bot.voiceStream);
+  };
+  console.log('Playing: %s - %s', track.artist[0].name, track.name);
+  var mp3decoder = new lame.Decoder();
+  //mp3decoder.pipe(speaker);
+	mp3decoder.on('format', decode);
+
+  if(!spotify.isTrackAvailable(track,"DE")){
+    console.log("Song isn't available in Country");
+    //callback(null)
+    //return
+  }
+    track.play()
+      .pipe(mp3decoder)
+      .on('finish', function () {
+        return
+      });
 }

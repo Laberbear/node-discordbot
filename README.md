@@ -24,8 +24,7 @@ After that checkout this repo and install the dependencies with:
 
     $ npm install
 
-There will probably some compiling errors and warnings, but it should work
-anyways.
+There will probably some compiling errors and warnings, but it should work anyways.
 Start the bot with the following command:
 
     $ node app.js SPOTIFYUSERNAME SPOTIFYPASSWORD DISCORDUSERNAME DISCORDPASSWORD
@@ -37,10 +36,16 @@ free accounts, you cannot use accounts that were created with via a Facebook log
 TODO/ISSUES
 -----------
 
-- Crashing on wrong inputs (urgent)
 - Crashing on direct messages
 - Detect double assigned plugins
-
+- Add native playlists, where users cann add songs (WIP)
+- Update track restrictions
+- configs, logs and status output into discord
+- easier playback for spotify command (e.g. play chill) maybe specified in config
+- recurseAlternatives for country checking
+- add purge + mute
+- add permissions
+- add posts/time interval (WIP)
 
 DOCKER
 ------
@@ -48,7 +53,7 @@ DOCKER
 Build the docker container:
 sudo docker build -t "node-discordbot" .
 
-sudo docker ps -a | awk '{ print $1,$2 }' | grep IMAGENAME | awk '{print $1 }' | xargs -I {} sudo docker rm {}
+sudo docker ps -a | awk '{ print $1,$2 }' | grep IMAGENAME | awk '{print $1 }' | xargs -I {} sudo docker stop {}
 
 Remove all docker containers of the specified image
 

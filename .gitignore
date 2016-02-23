@@ -27,7 +27,12 @@ build/Release
 node_modules
 
 # Config Files
-.config
+*.config
 
 #atom-ternjs config file
 .tern-project
+
+# Private autostart/build files
+*.bat
+Dockerfile
+*.sh

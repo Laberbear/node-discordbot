@@ -4,8 +4,9 @@
 
 var exports = module.exports = {};
 
-var message_handler = function(discordClient, discordEvent, message_content){
-  discordEvent.message.reply("Pong")
+var message_handler = function(message_content, e, bot, callback){
+  bot.discordEvent.message.reply("Pong")
+  callback()
 }
 
 exports.getCommands = function(){
