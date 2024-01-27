@@ -3,14 +3,14 @@
 */
 
 class Command {
-  async messageHandler(command, msg) {
-    await msg.reply('Pong');
+  async messageHandler() {
+    process.exit(1);
   }
 
   getCommands() {
     return [{
-      name: 'ping',
-      description: 'Bot responds with pong',
+      name: 'restart',
+      description: 'Forcefully restart the bot (assuming it is using forever.js)',
     }];
   }
 }

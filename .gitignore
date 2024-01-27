@@ -36,3 +36,5 @@ node_modules
 *.bat
 Dockerfile
 *.sh
+config.json
+gcp_auth.json

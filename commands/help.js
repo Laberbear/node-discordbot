@@ -1,29 +1,21 @@
-/*
-  Simple pong response on a ping message directed at the bot
-*/
-
-var exports = module.exports = {};
-
-var message_handler = function(message_content, e, bot, callback){
-  var reply_message = "Currently installed commands are: \n!";
-  if(!e){
-    console.log("Event isn't set, I can't reply to this message!");
+class Help {
+  getCommands() {
+    return [{
+      name: 'help',
+      description: "Displays the bot's help message",
+    }];
   }
 
+  async messageHandler(c, msg, bot) {
+    let answer = 'Currently installed commands are: \n';
 
-  for(var command of bot.registeredCommands){
-    reply_message += command.name + " - " + command.description + "\n"
+    console.log(answer);
+    for (const [commandName, { description }] of Object.entries(bot.registeredCommands)) {
+      answer += `!${commandName} - ${description}\n`;
+    }
+    console.log(answer);
+    await msg.reply(answer);
   }
-  e.message.reply(reply_message);
-
-  callback();
 }
 
-exports.getCommands = function(){
-  var command = {
-    'name' : "help",
-    'description' : "Displays the bot's help message",
-    'handler' : message_handler
-  }
-  return command;
-}
+module.exports = Help;
