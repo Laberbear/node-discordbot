@@ -54,7 +54,6 @@ class Command {
       estimatedMileageEndOfYear: `${estimatedMileageEndOfYear} km`,
       mileageWholeYear,
       insurancePercent: ((mileageWholeYear / this.insuranceMaxMileage) * 100).toFixed(0),
-      batteryPercent: ((mileageWholeYear / this.batteryMaxMileage) * 100).toFixed(0),
     };
   }
 
@@ -88,7 +87,6 @@ class Command {
     this.batteryEntity = bot.config.hassCarBattery;
     this.chargingEntity = bot.config.hassCarCharging;
     this.mileageEntity = bot.config.hassCarMileage;
-    this.batteryMaxMileage = bot.config.carBatteryMaxMileage;
     this.insuranceMaxMileage = bot.config.carInsuranceMaxMileage;
     this.startMileage = bot.config.carStartOfYearMileage;
 
@@ -105,16 +103,16 @@ class Command {
 
       Current Mileage: ${m.current}
       Estimated Mileage at the end of the year (assuming you drive like the last 7 days): ${m.estimatedMileageEndOfYear}
-      This is ${m.batteryPercent}% of the battery rental contract and ${m.insurancePercent}% of the car insurance.
+      This is ${m.insurancePercent}% of the car insurance.
     `);
   }
 
   getCommands() {
     return [{
-      name: 'zoe',
-      description: 'Get a complete overview of the Zoe Stats',
+      name: 'ioniq',
+      description: 'Get a complete overview of the Ioniq 5 stats',
     }, {
-      name: 'zoepercent',
+      name: 'ioniqpercent',
       description: 'Get only the battery level in percent',
     }];
   }

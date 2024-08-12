@@ -63,7 +63,7 @@ dependencies:
     specifier: ^2.3.0
     version: 2.3.0
   ytsr:
-    specifier: ^3.8.0
+    specifier: ^3.8.4
     version: 3.8.4
 
 devDependencies:

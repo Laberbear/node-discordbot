@@ -229,8 +229,6 @@ class Youtube {
         } else {
           await ytDlpWrap.execPromise([
             url,
-            '-f',
-            'best',
             '-o',
             ytdlFileName,
           ]);

@@ -34,7 +34,7 @@
     "yt-dlp-wrap": "^2.3.12",
     "ytdl-core": "^4.11.5",
     "ytpl": "^2.3.0",
-    "ytsr": "^3.8.0"
+    "ytsr": "^3.8.4"
   },
   "devDependencies": {
     "@types/jest": "^29.5.11",
