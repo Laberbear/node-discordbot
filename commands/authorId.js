@@ -1,6 +1,21 @@
+const { Message } = require("discord.js");
+
 class Command {
+  /**
+   * 
+   * @param {*} command 
+   * @param {Message} msg 
+   */
   async messageHandler(command, msg) {
-    await msg.reply(`Hey ${msg.author.username} your ID is: ${msg.author.id}`);
+    const channels = await msg.guild.channels.fetch();
+    await msg.reply(`Hey ${msg.author.username} heres your info:
+      AuthorId: ${msg.author.id}
+      GuildId: ${msg.guild.id}
+      Channels: 
+      ${channels.map((channel) => `
+        ${channel.name} (${channel.type === 2 ? 'Voice' : 'Text'})
+        ID: ${channel.id}`).join('\n')}
+      `);
   }
 
   getCommands() {

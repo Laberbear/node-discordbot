@@ -15,6 +15,7 @@ class BobTheBot {
     this.plugins = [];
     this.registeredCommands = {};
     this.authToken = this.config.authToken;
+    this.allowOwnBotMessages = false;
     this.client = new Discord.Client({
       intents: [
         Discord.GatewayIntentBits.Guilds,
@@ -66,7 +67,7 @@ class BobTheBot {
    */
   async onMessage(msg) {
     console.log('message');
-    if (msg.author.id === this.userId) {
+    if (!this.allowOwnBotMessages && msg.author.id === this.userId) {
       console.debug('Ignoring Message sent by the bot itself');
       return;
     }

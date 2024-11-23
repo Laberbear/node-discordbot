@@ -190,7 +190,7 @@ class Youtube {
 
   async playNextVideo() {
     let retryCount = 0;
-    const MAX_RETRIES = 3;
+    const MAX_RETRIES = 30;
     // eslint-disable-next-line no-unreachable-loop
     while (retryCount < MAX_RETRIES) {
       try {
@@ -208,7 +208,17 @@ class Youtube {
         this.currentTitle = info.videoDetails.title;
         console.log(`Now playing: ${info.videoDetails.title}`);
         console.log(`URL: ${url}`);
-        const ytdlFileName = 'output.mp4';
+        try {
+          await fspromises.rm('./outfolder', { recursive: true, force: true });
+        } catch (error) {
+
+        }
+        try {
+          await fspromises.mkdir('./outfolder');
+        } catch (error) {
+
+        }
+        const ytdlFileName = './outfolder/output';
         const ffmpegFileName = 'test.mp3';
         try {
           await fspromises.rm(ytdlFileName);
@@ -223,24 +233,32 @@ class Youtube {
         if (YTDL_STREAM) {
           ytdlOutput = ytDlpWrap.execStream([
             url,
+            '--merge-output-format',
+            'mp4',
             '-f',
             'best[ext=mp4]',
           ]);
         } else {
-          await ytDlpWrap.execPromise([
+          const x = await ytDlpWrap.execPromise([
             url,
+            // '-f',
+            // 'best[ext=mp4]',
             '-o',
             ytdlFileName,
           ]);
+          console.log(x);
           ytdlOutput = ytdlFileName;
         }
         let ffmpegOutput;
+        const file = (await fspromises.readdir('./outfolder'))[0];
         if (FFMPEG_STREAM) {
-          ffmpegOutput = convertPipe(ytdlOutput);
+          ffmpegOutput = convertPipe(`${ytdlOutput}`);
         } else {
-          await convert(ytdlOutput, ffmpegFileName);
+          await convert(`./outfolder/${file}`, ffmpegFileName);
           ffmpegOutput = ffmpegFileName;
         }
+
+        console.log(`${ytdlOutput}`, ffmpegOutput);
 
         const resource = createAudioResource(ffmpegOutput, { inlineVolume: true });
 
@@ -259,7 +277,7 @@ class Youtube {
       }
     }
     console.log(`Failed after ${MAX_RETRIES} retries`);
-    throw new Error();
+    await this.playNextVideo();
   }
 
   /**
