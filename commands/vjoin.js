@@ -7,10 +7,9 @@ const { joinVoiceChannel, getVoiceConnection } = require('@discordjs/voice');
 
 class Command {
   /**
-    *
-    * @param {*} command
-    * @param {Discord.Message} msg
-    */
+   * @param {*} command
+   * @param {Discord.Message} msg
+   */
   async vjoin(command, msg) {
     const channels = await msg.guild.channels.fetch();
     const voiceChannels = channels.filter((channel) => channel.type === 'GUILD_VOICE');
@@ -36,23 +35,22 @@ class Command {
   }
 
   /**
-    *
-    * @param {*} command
-    * @param {Discord.Message} msg
-    */
+   * @param {*} command
+   * @param {Discord.Message} msg
+   */
   async vleave(command, msg) {
     (await getVoiceConnection(msg.guild.id)).destroy();
   }
 
   /**
-    *
-    * @param {*} command
-    * @param {Discord.Message} msg
-    */
+   * @param {*} command
+   * @param {Discord.Message} msg
+   */
   async messageHandler(command, msg) {
     if (command === 'vjoin') {
       return this.vjoin(command, msg);
-    } if (command === 'vleave') {
+    }
+    if (command === 'vleave') {
       return this.vleave(command, msg);
     }
     return null;

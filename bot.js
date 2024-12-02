@@ -1,6 +1,8 @@
 const Discord = require('discord.js');
 const {
-  createAudioPlayer, getVoiceConnection, NoSubscriberBehavior,
+  createAudioPlayer,
+  getVoiceConnection,
+  NoSubscriberBehavior,
 } = require('@discordjs/voice');
 const { joinVoiceChannel } = require('@discordjs/voice');
 const plugins = require('./commands');
@@ -34,7 +36,8 @@ class BobTheBot {
     this.resetProperties();
     await this.client.login(this.authToken);
     this.client.on('messageCreate', (msg) => this.onMessage(msg));
-    // this.enableAutoVoiceLeave();
+    await this.client.user.setActivity();
+    this.enableAutoVoiceLeave();
     this.userId = this.client.user.id;
   }
 
@@ -43,13 +46,11 @@ class BobTheBot {
   }
 
   /**
-   *
    * @param {string} content
    * @param {Discord.MessageMentions} mentions
    * @returns
    */
   messageIsDirectedAtBot(content, mentions) {
-    console.log(content);
     for (const mentionedUser of mentions.users) {
       if (mentionedUser.id === this.userId) {
         return true;
@@ -62,18 +63,13 @@ class BobTheBot {
   }
 
   /**
-   *
    * @param {Discord.Message} msg
    */
   async onMessage(msg) {
-    console.log('message');
     if (!this.allowOwnBotMessages && msg.author.id === this.userId) {
-      console.debug('Ignoring Message sent by the bot itself');
       return;
     }
-    console.log(msg);
     if (!this.messageIsDirectedAtBot(msg.content, msg.mentions)) {
-      console.log('Message was not directed at bot');
       await this.checkMessageListeners(msg);
       return;
     }
@@ -83,7 +79,9 @@ class BobTheBot {
     console.log(`Message directed at bot found: ${content} by: ${msg.author.username}`);
     try {
       await this.callBotCommand(command, msg);
-      await msg.delete();
+      if (this.config.deleteProcessedMessages) {
+        await msg.delete();
+      }
     } catch (error) {
       if (this.failOnCommandError) {
         throw error;
@@ -97,7 +95,6 @@ class BobTheBot {
     for (const plugin of this.plugins) {
       if (plugin.messageListener) {
         try {
-        // eslint-disable-next-line no-await-in-loop
           await plugin.messageListener(msg);
         } catch (error) {
           if (this.failOnCommandError) {
@@ -137,7 +134,10 @@ class BobTheBot {
   }
 
   async getVoiceConnection(guildId) {
-    await getVoiceConnection(guildId);
+    if (!guildId) {
+      throw Error('No guild id specified for voice connection');
+    }
+    return getVoiceConnection(guildId);
   }
 
   async playAudioResource(guildId, resource, startVolume = 0.6) {
@@ -157,10 +157,9 @@ class BobTheBot {
 
   enableAutoVoiceLeave() {
     this.client.on('voiceStateUpdate', async (oldState, newState) => {
-      // check for bot
-      if (newState.member.voice.channelId) return;
-      const channel = await oldState.member.voice.channel.fetch();
-      if (channel.members.size === 0) {
+      if (newState.channelId) return;
+      const channel = await oldState.channel.fetch();
+      if (channel.members.filter((val) => val.id !== this.userId).size === 0) {
         this.leaveVoiceChannel(channel.guildId);
       }
     });
@@ -177,7 +176,12 @@ class BobTheBot {
   }
 
   async leaveVoiceChannel(guildId) {
-    (await getVoiceConnection(guildId)).destroy();
+    const voiceConnection = await getVoiceConnection(guildId);
+    if (!voiceConnection) {
+      this.currentVoiceChannel = null;
+      return;
+    }
+    voiceConnection.destroy();
     this.currentVoiceChannel = null;
   }
 

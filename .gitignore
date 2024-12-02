@@ -38,3 +38,5 @@ Dockerfile
 *.sh
 config.json
 gcp_auth.json
+outfolder
+test.mp3

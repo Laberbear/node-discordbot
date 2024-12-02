@@ -7,14 +7,14 @@ const textToSpeech = require('@google-cloud/text-to-speech');
 const fs = require('fs');
 const Discord = require('discord.js');
 const {
-  createAudioResource, createAudioPlayer, getVoiceConnection,
+  createAudioResource,
+  createAudioPlayer,
+  getVoiceConnection,
 } = require('@discordjs/voice');
-  // https://evilinsult.com/
+// https://evilinsult.com/
 const util = require('util');
 // Creates a client
-const client = new textToSpeech.TextToSpeechClient({
-
-});
+const client = new textToSpeech.TextToSpeechClient({});
 async function quickStart(text) {
   // The text to synthesize
 
@@ -39,7 +39,6 @@ async function quickStart(text) {
 }
 class Ping {
   /**
-   *
    * @param {*} cmd
    * @param {Discord.Message} msg
    */

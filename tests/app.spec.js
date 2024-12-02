@@ -3,7 +3,6 @@ const config = require('../config.json');
 
 jest.setTimeout(20000);
 /**
- *
  * @param {BobTheBot} bot
  * @param {string} text
  * @returns

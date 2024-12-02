@@ -3,7 +3,9 @@
   dont forget this shizzle: https://github.com/MainSilent/Discord-Screenshare
 */
 const {
-  createAudioResource, createAudioPlayer, getVoiceConnection,
+  createAudioResource,
+  createAudioPlayer,
+  getVoiceConnection,
 } = require('@discordjs/voice');
 const { spawn } = require('child_process');
 
@@ -18,8 +20,10 @@ class Command {
 
     const source = spawn(
       'bash',
-      // eslint-disable-next-line max-len
-      ['-c', `librespot -v -n "${speakerName}" --enable-volume-normalisation --normalisation-pregain 0 -b 160 -u 1127676976 --backend pipe --passthrough -p "${spotifyPass}"`],
+      [
+        '-c',
+        `librespot -v -n "${speakerName}" --enable-volume-normalisation --normalisation-pregain 0 -b 160 -u 1127676976 --backend pipe --passthrough -p "${spotifyPass}"`,
+      ],
       { stdio: ['ignore', 'pipe', process.stdout] },
     );
     const resource = createAudioResource(source.stdout, {

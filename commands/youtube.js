@@ -2,19 +2,18 @@
  * Requires youtube-dl and ffmpeg to be installed and available in PATH
  * or set in the paths below
  * https://www.npmjs.com/package/youtube-dl-wrap
- *
  */
-const ytdl = require('ytdl-core');
 const Discord = require('discord.js');
 const ffmpeg = require('fluent-ffmpeg');
+const yts = require('yt-search');
 const YTDlpWrap = require('yt-dlp-wrap').default;
 // const ytDlpWrap = new YTDlpWrap('C:\\Users\\alex2\\Downloads\\yt-dlp.exe');
 const {
-  createAudioResource, AudioPlayerStatus,
+  createAudioResource,
+  AudioPlayerStatus,
 } = require('@discordjs/voice');
-const ytpl = require('ytpl');
-const ytsr = require('ytsr');
 const fs = require('fs');
+const { VoiceConnectionStatus } = require('@discordjs/voice');
 const { BobTheBot } = require('../bot');
 
 const fspromises = fs.promises;
@@ -30,6 +29,17 @@ const ytDlpWrap = new YTDlpWrap(YTDLPATH || undefined);
 if (FFMPEGPATH) {
   ffmpeg.setFfmpegPath(FFMPEGPATH);
 }
+
+const messageStates = {
+  ENQUEUED: '🔜',
+  QUERYING: '🔭',
+  DOWNLOADING: '🚀',
+  CONVERTING: '⚙️',
+  PLAYING: '🔊',
+  FINISHED: '🥳',
+  ERROR: '😵‍💫',
+  PLAYLIST: '🔢',
+};
 
 async function convert(input, output) {
   return new Promise((resolve, reject) => {
@@ -67,10 +77,11 @@ class Youtube {
 
   currentTitle = null;
 
+  currentQueueEntry = null;
+
   bot = null;
 
   /**
-   *
    * @param {BobTheBot} bot
    */
   constructor(bot) {
@@ -80,10 +91,10 @@ class Youtube {
   async enqueueVideoAtStart(command, msg) {
     const videoUrl = msg.content.replace('!next', '').trim();
     console.log(`Found a single video URL ${videoUrl}`);
-    const info = await ytdl.getInfo(videoUrl);
+    const info = await this.getInfoByUrl(videoUrl);
     this.queue.unshift({
       url: videoUrl,
-      title: info.videoDetails.title,
+      title: info.title,
       enqueuedBy: msg.author,
       guildId: msg.guild.id,
     });
@@ -139,6 +150,10 @@ class Youtube {
     bot.audioPlayer.removeAllListeners();
     bot.createNewAudioPlayer();
     this.currentlyPlaying = false;
+    this.bot.client.user.setActivity('', { type: Discord.ActivityType.Playing });
+    if (this.currentQueueEntry) {
+      await this.updateEmojiState(this.currentQueueEntry.msg, messageStates.FINISHED);
+    }
     if (msg.content.split(' ').length > 1) {
       const skipCount = parseInt(msg.content.split(' ')[1], 10);
       this.queue = this.queue.slice(skipCount);
@@ -181,6 +196,27 @@ class Youtube {
     return message.indexOf('/watch') !== -1 || message.indexOf('youtu.be') !== -1;
   }
 
+  /**
+   * @param {Discord.Message} msg
+   * @param {String} desiredState
+   */
+  async updateEmojiState(msg, desiredState) {
+    try {
+      await msg.react(desiredState);
+      for (const [, reaction] of msg.reactions.cache.entries()) {
+        if (reaction.emoji.name !== desiredState) {
+          try {
+            await reaction.remove();
+          } catch (error) {
+            console.log('Couldnt remove reaction from message', reaction);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error while trying react to message', msg, desiredState);
+    }
+  }
+
   async startQueue() {
     if (this.currentlyPlaying) {
       return;
@@ -188,46 +224,62 @@ class Youtube {
     await this.playNextVideo();
   }
 
+  stopPlaying() {
+    this.queue = [];
+    this.currentTitle = null;
+    this.currentlyPlaying = false;
+    this.currentQueueEntry = null;
+    console.log('Stopping Playing since not in any voice channel');
+  }
+
   async playNextVideo() {
+    if (!this.bot.currentVoiceChannel) {
+      this.stopPlaying();
+      return;
+    }
     let retryCount = 0;
     const MAX_RETRIES = 30;
-    // eslint-disable-next-line no-unreachable-loop
+
+    let msg;
+    let guildId;
+    let url;
     while (retryCount < MAX_RETRIES) {
       try {
         if (this.queue.length === 0) {
           this.currentlyPlaying = false;
           this.currentTitle = null;
+          this.currentQueueEntry = null;
           console.log('Stopping Playing since the queue is empty');
           return;
         }
 
         this.currentlyPlaying = true;
         console.log(this.queue.length);
-        const { url, guildId } = this.queue.shift();
-        const info = (await ytdl.getInfo(url));
-        this.currentTitle = info.videoDetails.title;
-        console.log(`Now playing: ${info.videoDetails.title}`);
+        const queueEntry = this.queue.shift();
+        ({ url, guildId, msg } = queueEntry);
+        const innerMsg = msg;
+        await this.updateEmojiState(msg, messageStates.QUERYING, queueEntry);
+        const info = await this.getInfoByUrl(url);
+        this.currentTitle = info.title;
+        this.currentQueueEntry = queueEntry;
+        console.log(`Now playing: ${info.title}`);
         console.log(`URL: ${url}`);
         try {
           await fspromises.rm('./outfolder', { recursive: true, force: true });
         } catch (error) {
-
         }
         try {
           await fspromises.mkdir('./outfolder');
         } catch (error) {
-
         }
         const ytdlFileName = './outfolder/output';
         const ffmpegFileName = 'test.mp3';
         try {
           await fspromises.rm(ytdlFileName);
-        // eslint-disable-next-line no-empty
-        } catch (error) { }
+        } catch (error) {}
         try {
           await fspromises.rm(ffmpegFileName);
-        // eslint-disable-next-line no-empty
-        } catch (error) { }
+        } catch (error) {}
 
         let ytdlOutput;
         if (YTDL_STREAM) {
@@ -239,6 +291,7 @@ class Youtube {
             'best[ext=mp4]',
           ]);
         } else {
+          await this.updateEmojiState(msg, messageStates.DOWNLOADING);
           const x = await ytDlpWrap.execPromise([
             url,
             // '-f',
@@ -254,27 +307,51 @@ class Youtube {
         if (FFMPEG_STREAM) {
           ffmpegOutput = convertPipe(`${ytdlOutput}`);
         } else {
+          await this.updateEmojiState(msg, messageStates.CONVERTING);
           await convert(`./outfolder/${file}`, ffmpegFileName);
           ffmpegOutput = ffmpegFileName;
         }
 
         console.log(`${ytdlOutput}`, ffmpegOutput);
 
+        await this.updateEmojiState(msg, messageStates.PLAYING);
+
+        try {
+          await this.bot.client.user.setActivity(queueEntry.title, { type: Discord.ActivityType.Playing });
+        } catch (error) {
+        }
         const resource = createAudioResource(ffmpegOutput, { inlineVolume: true });
 
         this.bot.audioPlayer.once(AudioPlayerStatus.Idle, async () => {
+          await this.updateEmojiState(innerMsg, messageStates.FINISHED);
           console.log(`Finished playing: ${info.videoDetails.title}`);
+          await this.bot.client.user.setActivity();
           console.log(this.queue);
           await this.playNextVideo();
         });
 
+        if (!this.bot.currentVoiceChannel) {
+          this.stopPlaying();
+          await this.updateEmojiState(msg, messageStates.FINISHED);
+          await this.bot.client.user.setActivity();
+          return;
+        }
         await this.bot.playAudioResource(guildId, resource);
+        (await this.bot.getVoiceConnection(guildId)).on(VoiceConnectionStatus.Destroyed, async () => {
+          this.stopPlaying();
+          await this.updateEmojiState(innerMsg, messageStates.FINISHED);
+          await this.bot.client.user.setActivity();
+        });
         return;
       } catch (error) {
         console.log(error);
         retryCount += 1;
         console.log('Retrying');
       }
+    }
+    try {
+      await this.updateEmojiState(msg, messageStates.ERROR);
+    } catch (error) {
     }
     console.log(`Failed after ${MAX_RETRIES} retries`);
     await this.playNextVideo();
@@ -288,16 +365,34 @@ class Youtube {
     const videoUrl = msg.content.replace('!play ', '');
     const playlistId = videoUrl.slice(videoUrl.indexOf('&list=') + 6).split('&')[0];
     console.log(`Found a playlist in the sent message: ${playlistId}`);
-    const playlist = await ytpl(playlistId);
-    console.log(`Playlist has ${playlist.items.length} items`);
+    await this.updateEmojiState(msg, messageStates.QUERYING);
+    let playlist;
+    try {
+      playlist = await yts({ listId: playlistId });
+    } catch (error) {
+      await this.updateEmojiState(msg, messageStates.ERROR);
+      if (playlistId.startsWith('RD')) {
+        await msg.reply(`Youtube Mixes are AI Generated suggestions for you
+        and therefore not playable by a non humanoid like me.
+        And with that I mean the library I use to fetch the playlist info
+        does not support Mixes yet.
+        https://github.com/talmobi/yt-search/issues/46`);
+        throw error;
+      }
+      await msg.reply(`Couldn't parse playlist.
+      ${error}`);
+      throw error;
+    }
+    await this.updateEmojiState(msg, messageStates.PLAYLIST);
+    console.log(`Playlist has ${playlist.videos.length} items`);
     console.log(`Playlist Name: ${playlist.title}`);
-    this.queue.push(...playlist.items.map((video) => ({
-      url: video.shortUrl,
+    this.queue.push(...playlist.videos.map((video) => ({
+      url: `https://youtube.com/watch?v=${video.videoId}`,
       enqueuedBy: msg.author,
       title: video.title,
       guildId: msg.guild.id,
+      msg,
     })));
-    console.log(playlist);
 
     this.startQueue();
   }
@@ -309,15 +404,27 @@ class Youtube {
   async enqueueVideo(command, msg) {
     const videoUrl = msg.content.replace('!play ', '');
     console.log(`Found a single video URL ${videoUrl}`);
-    const info = (await ytdl.getInfo(videoUrl));
+    let info;
+    try {
+      info = await this.getInfoByUrl(videoUrl);
+    } catch (error) {
+      await this.updateEmojiState(msg, messageStates.ERROR);
+    }
     this.queue.push({
       url: videoUrl,
-      title: info.videoDetails.title,
+      title: info.title,
       enqueuedBy: msg.author,
       guildId: msg.guild.id,
+      msg,
     });
 
+    await this.updateEmojiState(msg, messageStates.ENQUEUED);
     this.startQueue();
+  }
+
+  async getInfoByUrl(videoUrl) {
+    const videoId = videoUrl.slice(videoUrl.indexOf('v=') + 2).split('&')[0];
+    return yts({ videoId });
   }
 
   /**
@@ -327,15 +434,19 @@ class Youtube {
   async searchYoutube(command, msg) {
     const searchText = msg.content.replace('!play', '');
     console.log(`Searching for youtube results for ${searchText}`);
-    const results = await ytsr(searchText);
-    console.log(`Found ${results.items.length} search results`);
-    const firstItem = results.items[0];
+    await this.updateEmojiState(msg, messageStates.QUERYING);
+    const results = await yts(searchText);
+
+    console.log(`Found ${results.videos.length} search results`);
+    const firstItem = results.videos[0];
     console.log(`Playing first item in results: ${firstItem.title}`);
+    await this.updateEmojiState(msg, messageStates.ENQUEUED);
 
     this.queue.push({
       url: firstItem.url,
       enqueuedBy: msg.author,
       guildId: msg.guild.id,
+      msg,
     });
 
     this.startQueue();

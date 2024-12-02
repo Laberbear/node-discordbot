@@ -2,7 +2,10 @@ const fetch = require('node-fetch');
 
 const { EmbedBuilder, Message } = require('discord.js');
 
-const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
+const sleep = (ms) =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 const metaReviewUrls = {
   amazon: 'https://reviewmeta.com/api/amazon/',
   'amazon-de': 'https://reviewmeta.com/api/amazon-de/',
@@ -44,13 +47,13 @@ function getAmazonProductId(url) {
     endProductId = url.length;
   }
   if (!startProductId || !endProductId) {
-    throw new Error('Couldn\'t find product Id');
+    throw new Error("Couldn't find product Id");
   }
 
   const productId = url.substring(startProductId, endProductId);
 
   if (!productId || productId === url) {
-    throw new Error('Couldn\'t find product Id');
+    throw new Error("Couldn't find product Id");
   }
   return productId;
 }
@@ -68,7 +71,6 @@ const reviewMetaToText = {
 };
 
 /**
- *
  * @param {Message} msg
  * @param {Object} reviewMetaResult
  */

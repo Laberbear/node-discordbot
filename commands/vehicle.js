@@ -36,10 +36,13 @@ class Command {
     const start = new Date(Date.now() - 1000 * 60 * 60 * 24 * 7).toISOString().replace('Z', '');
     const end = new Date().toISOString().replace('Z', '');
 
-    const result3 = await fetch(`
-    ${this.hassUrl}/api/history/period/${start}?filter_entity_id=${this.mileageEntity}&end_time=${end}`, {
-      headers: { Authorization: `Bearer ${this.hassToken}` },
-    });
+    const result3 = await fetch(
+      `
+    ${this.hassUrl}/api/history/period/${start}?filter_entity_id=${this.mileageEntity}&end_time=${end}`,
+      {
+        headers: { Authorization: `Bearer ${this.hassToken}` },
+      },
+    );
     console.log(`${this.hassUrl}/api/history/period/${start}?filter_entity_id=${this.mileageEntity}&end_time=${end}`);
     const result4 = await result3.json();
     const mileage7DaysAgo = result4[0][0].state;

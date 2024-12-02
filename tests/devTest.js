@@ -1,11 +1,28 @@
-// Start Bot
-// Join Voice CHannel
-// Run Fake Command
-
+/* eslint-disable no-unused-vars */
+/**
+ * Modify main function to iterate changes quicker
+ */
 const { BobTheBot } = require('../bot');
 
+async function testRegularPlay(textChannel) {
+  await textChannel.send('!play https://www.youtube.com/watch?v=0cko58IR_lA');
+}
+
+async function testYTSearch(textChannel) {
+  await textChannel.send('!play Taylor Swift Fairytale');
+}
+
+async function testPlaylist(textChannel) {
+  await textChannel.send('!play https://www.youtube.com/watch?v=Kwf7P2GNAVw&list=PLNPMW9kftjmInubQIY4CDGCUF9VY2HxaC');
+}
+
+async function testMix(textChannel) {
+  await textChannel.send(
+    '!play https://www.youtube.com/watch?v=e-ORhEE9VVg&list=RDEMb1vAi4rwXXeDlr7NZ68C_w&start_radio=1',
+  );
+}
+
 async function main() {
-  // eslint-disable-next-line global-require
   const config = require('../config.json');
   const bob = new BobTheBot(config);
   await bob.init();
@@ -21,7 +38,7 @@ async function main() {
 
   bob.allowOwnBotMessages = true;
 
-  await textChannel.send('!play https://www.youtube.com/watch?v=0cko58IR_lA');
+  await testPlaylist(textChannel);
 }
 
 main();
