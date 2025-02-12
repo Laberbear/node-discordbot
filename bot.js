@@ -122,6 +122,9 @@ class BobTheBot {
     // Register all commands in the plugin folder
     for (const Plugin of plugins) {
       const newPlugin = new Plugin(this);
+      if (newPlugin.init) {
+        await newPlugin.init();
+      }
       this.plugins.push(newPlugin);
       newPlugin.getCommands().forEach((command) => {
         this.registeredCommands[command.name] = {

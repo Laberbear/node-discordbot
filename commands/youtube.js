@@ -81,11 +81,23 @@ class Youtube {
 
   bot = null;
 
+  mixList = [];
+
+  mixFilePath = './youtubemix.json';
+
   /**
    * @param {BobTheBot} bot
    */
   constructor(bot) {
     this.bot = bot;
+  }
+
+  async init() {
+    try {
+      await this.loadSongs();
+    } catch (error) {
+      console.log('Could not load mix list, probably it just does not exist yet');
+    }
   }
 
   async enqueueVideoAtStart(command, msg) {
@@ -100,7 +112,55 @@ class Youtube {
     });
 
     this.startQueue();
-    msg.channel.send(`Video "${info.videoDetails.title}" added to the queue!`);
+    msg.channel.send(`Video "${info.title}" added to the queue!`);
+  }
+
+  getRandomSong() {
+    return this.mixList[Math.floor(Math.random() * this.mixList.length)];
+  }
+
+  async saveSong(queueItem) {
+    try {
+      // Skip adding if already in mixlist
+      if (this.mixList.find(v => v.url === queueItem.url)) {
+        return;
+      }
+      console.log('Storing a video to the mix file');
+      const mixItem = {
+        url: queueItem.url,
+        enqueuedBy: {
+          id: queueItem.enqueuedBy.id,
+          username: queueItem.enqueuedBy.username,
+        },
+        title: queueItem.title,
+        guildId: queueItem.guildId,
+      };
+      this.mixList.push(mixItem);
+      await fs.promises.writeFile(
+        this.mixFilePath,
+        JSON.stringify({
+          videos: this.mixList,
+        }),
+      );
+    } catch (error) {
+      console.log('Error while trying to save song to mix playlist');
+      console.log(error);
+    }
+  }
+
+  async loadSongs() {
+    this.mixList = JSON.parse((await fs.promises.readFile(this.mixFilePath)).toString()).videos;
+  }
+
+  /**
+   * @param {*} command
+   * @param {Discord.Message} msg
+   * @param {BobTheBot} bot
+   */
+  async playMix(command, msg, bot) {
+    const shuffledSong = this.getRandomSong();
+
+    console.log(shuffledSong);
   }
 
   /**
@@ -114,6 +174,9 @@ class Youtube {
     }
     if (msg.content.indexOf('!play') === 0) {
       await this.play(command, msg, bot);
+    }
+    if (msg.content.indexOf('!mix') === 0) {
+      await this.playMix(command, msg, bot);
     }
     if (msg.content.indexOf('!queue') === 0) {
       await this.showQueue(command, msg, bot);
@@ -256,6 +319,7 @@ class Youtube {
         this.currentlyPlaying = true;
         console.log(this.queue.length);
         const queueEntry = this.queue.shift();
+        await this.saveSong(queueEntry);
         ({ url, guildId, msg } = queueEntry);
         const innerMsg = msg;
         await this.updateEmojiState(msg, messageStates.QUERYING, queueEntry);
@@ -324,7 +388,7 @@ class Youtube {
 
         this.bot.audioPlayer.once(AudioPlayerStatus.Idle, async () => {
           await this.updateEmojiState(innerMsg, messageStates.FINISHED);
-          console.log(`Finished playing: ${info.videoDetails.title}`);
+          console.log(`Finished playing: ${info.title}`);
           await this.bot.client.user.setActivity();
           console.log(this.queue);
           await this.playNextVideo();
@@ -486,6 +550,9 @@ class Youtube {
     }, {
       name: 'skip',
       description: 'Skip a song!',
+    }, {
+      name: 'mix',
+      description: 'Play the mix',
     }, {
       name: 'queue',
       description: 'Show the current video queue',

@@ -6,8 +6,8 @@
   "scripts": {
     "test": "NODE_OPTIONS=--unhandled-rejections=warn jest --watch",
     "lint": "dprint fmt && eslint . --fix",
-    "dev": "nodemon app.js",
-    "devTest": "nodemon tests/devTest.js",
+    "dev": "nodemon app.js --ignore youtubemix.json",
+    "devTest": "nodemon tests/devTest.js --ignore youtubemix.json ",
     "deploy": "rm -rf ../temp-deploy && mkdir ../temp-deploy && cp -R ./ ../temp-deploy && rm -rf ../temp-deploy/node_modules && scp -r /home/winbuntu/private/node-discordbots/temp-deploy/* pi@smartpi:/home/pi/node-discordbot"
   },
   "engines": {
